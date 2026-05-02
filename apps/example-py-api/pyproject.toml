@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "example-py-api"
+version = "0.1.0"
+description = "Example Python API using AgentPay SDK — returns motivational quotes for 0.001 USDC"
+authors = ["AgentPay Team"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = "^0.30.0"
+agentpay = {path = "../../packages/sdk-py", develop = true}
+solana = "^0.36.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

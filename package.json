@@ -1,0 +1,5 @@
+{
+  "name": "agentpay",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"]
+}
