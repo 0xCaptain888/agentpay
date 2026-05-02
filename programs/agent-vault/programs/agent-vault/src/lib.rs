@@ -7,7 +7,7 @@ pub mod instructions;
 use instructions::*;
 use state::SpendingPolicy;
 
-declare_id!("AgntVLT1111111111111111111111111111111111111");
+declare_id!("3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s");
 
 #[program]
 pub mod agent_vault {
