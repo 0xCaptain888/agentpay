@@ -2,6 +2,7 @@
 Example Python API using AgentPay SDK.
 Returns a random motivational quote for 0.001 USDC per call.
 """
+import os
 from fastapi import FastAPI, Depends
 from solana.rpc.async_api import AsyncClient
 from agentpay import Paywall
@@ -10,10 +11,18 @@ import random
 app = FastAPI(title="QuoteBot", description="Pay 0.001 USDC for a motivational quote")
 
 # Initialize paywall
-rpc = AsyncClient("https://api.devnet.solana.com")
+RPC_URL = os.environ.get("RPC_URL", "https://api.devnet.solana.com")
+VAULT_ATA = os.environ.get("VAULT_ATA")
+if not VAULT_ATA or VAULT_ATA == "11111111111111111111111111111111":
+    raise RuntimeError(
+        "VAULT_ATA env var required. Set it to your vault's USDC ATA address. "
+        "Example: export VAULT_ATA=2EoLQwEHNy4gqeuMws5zhzpjKw6dnoUax3V1obhiqNuP"
+    )
+
+rpc = AsyncClient(RPC_URL)
 paywall = Paywall(
     rpc=rpc,
-    recipient_ata="11111111111111111111111111111111",  # Replace with your vault ATA
+    recipient_ata=VAULT_ATA,
     price=1_000,  # 0.001 USDC
 )
 

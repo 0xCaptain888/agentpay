@@ -18,12 +18,18 @@ def paywall():
     )
 
 
+def make_request(headers: dict | None = None):
+    """Helper: build a request mock with a real-dict-backed .headers."""
+    headers = headers or {}
+    request = MagicMock()
+    request.headers = headers
+    return request
+
+
 @pytest.mark.asyncio
 async def test_paywall_returns_402_without_payment(paywall):
     """Missing X-Payment and X-Payment-Nonce headers -> 402."""
-    request = MagicMock()
-    request.headers = {}
-    request.headers.get = lambda key, default=None: None
+    request = make_request({})
     response = MagicMock()
 
     with pytest.raises(HTTPException) as exc:
@@ -38,9 +44,7 @@ async def test_paywall_returns_402_without_payment(paywall):
 @pytest.mark.asyncio
 async def test_paywall_rejects_unknown_nonce(paywall):
     """Sending a nonce that was never issued -> 402."""
-    request = MagicMock()
-    request.headers = {"X-Payment": "fakesig", "X-Payment-Nonce": "unknown-nonce"}
-    request.headers.get = lambda key, default=None: request.headers.get(key, default)
+    request = make_request({"X-Payment": "fakesig", "X-Payment-Nonce": "unknown-nonce"})
     response = MagicMock()
 
     with pytest.raises(HTTPException) as exc:
@@ -54,9 +58,7 @@ async def test_paywall_rejects_expired_nonce(paywall):
     nonce = "test-expired-nonce"
     paywall.nonces[nonce] = NonceRecord(expires_at=time.time() - 10, paid=False)
 
-    request = MagicMock()
-    request.headers = {"X-Payment": "fakesig", "X-Payment-Nonce": nonce}
-    request.headers.get = lambda key, default=None: request.headers.get(key, default)
+    request = make_request({"X-Payment": "fakesig", "X-Payment-Nonce": nonce})
     response = MagicMock()
 
     with pytest.raises(HTTPException) as exc:
@@ -70,9 +72,7 @@ async def test_paywall_rejects_replay(paywall):
     nonce = "test-replay-nonce"
     paywall.nonces[nonce] = NonceRecord(expires_at=time.time() + 300, paid=True)
 
-    request = MagicMock()
-    request.headers = {"X-Payment": "fakesig", "X-Payment-Nonce": nonce}
-    request.headers.get = lambda key, default=None: request.headers.get(key, default)
+    request = make_request({"X-Payment": "fakesig", "X-Payment-Nonce": nonce})
     response = MagicMock()
 
     with pytest.raises(HTTPException) as exc:

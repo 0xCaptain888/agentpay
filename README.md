@@ -3,11 +3,17 @@
 > Programmable wallets and payment rails for AI agents on Solana.
 > Stripe for AI agents — built during Solana Frontier Hackathon, April 2026.
 
+## Live Demo
+
+- **Dashboard**: _deployment pending_
+- **AlphaScout API**: _deployment pending_
+- **Program on Explorer**: [3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s](https://explorer.solana.com/address/3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s?cluster=devnet)
+
 ## What it does
 
 - **AgentVault**: Anchor program giving each AI agent a self-custodial wallet with on-chain spending policies (max-per-tx, daily limit, allowlist).
 - **AgentPay SDK**: Drop-in HTTP 402 middleware for TypeScript and Python. Add 3 lines, charge USDC per API call.
-- **AlphaScout**: A live demo agent that earns USDC by selling research signals and autonomously pays for its own operating costs (LLM credits, RPC, social media).
+- **AlphaScout**: A live demo agent that earns USDC by selling research signals and autonomously pays for its own operating costs (LLM credits, RPC, social media). Powered by LangChain ReAct agent for autonomous social posting and weekly strategic decisions.
 
 ## Architecture
 
@@ -61,10 +67,47 @@
 
 ## Quick Start
 
-### Run the example API server (charges 0.01 USDC per call)
+### Prerequisites
 
 ```bash
+# Install Solana CLI + Anchor 0.30+
+# See: https://www.anchor-lang.com/docs/installation
+
+# Clone and install
+git clone https://github.com/0xCaptain888/agentpay.git
+cd agentpay
 pnpm install
+```
+
+### Deploy the Smart Contract
+
+```bash
+cd programs/agent-vault
+anchor build
+anchor deploy --provider.cluster devnet
+bash ../../scripts/sync-idl.sh
+```
+
+### Initialize the Vault
+
+```bash
+# Airdrop SOL to deployer + agent
+solana airdrop 2 --url devnet
+
+# Get USDC from Circle faucet: https://faucet.circle.com/ (select Solana Devnet)
+
+# Initialize vault + set policy + add vendors
+pnpm tsx scripts/setup-chain.ts
+
+# Fund the vault
+spl-token transfer 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU 5 \
+  <your-vault-ata> --fund-recipient --url devnet
+```
+
+### Run the Example API (charges 0.01 USDC per call)
+
+```bash
+export VAULT_ATA=<your-vault-ata>
 pnpm --filter @agentpay/example-api dev
 curl http://localhost:3001/data           # → 402 Payment Required
 ```
@@ -198,24 +241,30 @@ The agent cannot exceed these limits even if compromised. The owner (human) reta
 **Schedule:**
 - **14:00 UTC daily** — Research cycle (fetch data → generate signals via LLM)
 - **Every 1 hour** — Treasury tick (check balance, auto-pay suppliers)
-- **Every 6 hours** — Social post (status update on X)
+- **Every 6 hours** — Social post on X (LangChain agent generates tweet, falls back to template)
+- **Every 7 days** — Strategic review (LangChain agent self-reviews operating strategy)
 
 **Endpoints:**
 - `GET /signals/today` — Paid (0.01 USDC) — Today's research signals
-- `GET /status` — Free — Agent status, vault state, uptime
+- `GET /status` — Free — Agent status, vault state, spending policy, uptime
+- `GET /transactions` — Free — Recent on-chain activity for the vault
 - `GET /manifest` — Free — Vault ATA, pricing info
 - `GET /health` — Free — Health check
 
 ## Environment Variables
 
+See [`.env.example`](.env.example) for the full list. Key variables:
+
 ```bash
 # Chain
 RPC_URL=https://api.devnet.solana.com
-PROGRAM_ID=<your program id>
+PROGRAM_ID=3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s
 USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+VAULT_ATA=<your-vault-ata-after-init>
 
-# Agent
-AGENT_KEYPAIR_PATH=/secrets/agent.json
+# Agent — use AGENT_KEYPAIR_JSON for cloud deployments (Railway, etc.)
+AGENT_KEYPAIR_PATH=./agent-keypair.json
+# AGENT_KEYPAIR_JSON=[12,34,56,...]   # alternative: inject via env var
 OPENAI_API_KEY=sk-...
 OPENAI_API_BASE=https://api.deepseek.com  # optional, for non-OpenAI providers
 LLM_MODEL=deepseek-chat
@@ -229,20 +278,34 @@ SUPPLIER_USDC_ATA_TWITTER=<vendor-ata>
 ALPHASCOUT_URL=https://alpha-scout-prod.up.railway.app
 NEXT_PUBLIC_PROGRAM_ID=<same as PROGRAM_ID>
 NEXT_PUBLIC_VAULT_AUTHORITY=<agent pubkey>
+NEXT_PUBLIC_VAULT_PDA=<vault-pda>
+NEXT_PUBLIC_VAULT_ATA=<vault-ata>
 ```
 
 ## Development Status
 
 - [x] Day 1: Project scaffold, monorepo setup, Anchor workspace
 - [x] Day 1: AgentVault smart contract (4 instructions, 7 error codes)
-- [x] Day 2: Contract tests, devnet deployment
-- [x] Day 2: TypeScript SDK + HTTP 402 Express/Next.js middleware
+- [x] Day 2: Contract tests, TypeScript SDK + HTTP 402 Express/Next.js middleware
 - [x] Day 3: Python Agent SDK (vault client + FastAPI paywall)
 - [x] Day 3: Anti-replay memo verification (nonce binding)
 - [x] Day 4: AlphaScout Agent (research pipeline, treasury, cron tasks)
 - [x] Day 4: Dashboard (Next.js, real-time stats, uptime counter)
-- [x] Day 5: Example integrations (TS + Python), Dockerfile, deployment
-- [ ] Day 6-9: Final polish, demo video, submission
+- [x] Day 5: Example integrations (TS + Python), Dockerfile, deployment config
+- [x] Day 5: LangChain agent integration (social posting, weekly strategy review)
+- [x] Day 5: Policy panel, transaction feed, vault state API improvements
+- [ ] Day 6: Devnet deployment, vault initialization, end-to-end verification
+- [ ] Day 7-9: Final polish, demo video, submission
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/setup-chain.ts` | One-shot vault initialization on devnet (derives PDA, calls initialize_vault) |
+| `scripts/init-vault.sh` | Generate agent keypair, airdrop SOL |
+| `scripts/setup-vendors.sh` | Create 3 vendor keypairs + USDC ATAs |
+| `scripts/seed-traffic.sh` | Send test USDC payments to vault (for demo) |
+| `scripts/sync-idl.sh` | Build Anchor program and sync IDL to both SDKs |
 
 ## Resilience
 

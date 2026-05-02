@@ -81,6 +81,10 @@ class AgentPayClient:
             "max_per_tx": v.policy.max_per_tx,
             "total_received": v.stats.total_received,
             "total_spent": v.stats.total_spent,
+            # Policy details (for Dashboard PolicyPanel)
+            "allowlist_size": len(v.policy.allowlist),
+            "require_allowlist": v.policy.require_allowlist,
+            "expires_at": v.policy.expires_at,
         }
 
     async def _balance(self) -> int:

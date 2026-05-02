@@ -17,7 +17,7 @@ from .social.twitter import TwitterClient
 from .treasury.manager import TreasuryManager
 from .agent.memory import AgentMemory
 from .agent.core import AlphaScoutAgent
-from .tasks import research_cron, treasury_cron, social_cron
+from .tasks import research_cron, treasury_cron, social_cron, weekly_decision_cron
 
 logging.basicConfig(
     level=logging.INFO,
@@ -149,9 +149,17 @@ async def lifespan(app: FastAPI):
         ),
         asyncio.create_task(treasury_cron.run(treasury, settings)),
         asyncio.create_task(
-            social_cron.run(twitter, settings, vault_client=vault_client, cache=_signal_cache)
+            social_cron.run(twitter, settings, vault_client=vault_client,
+                            cache=_signal_cache, agent=agent)
         ),
     ]
+    # Option B: weekly strategic decision cron (agent self-reviews its strategy)
+    if agent is not None:
+        tasks.append(
+            asyncio.create_task(
+                weekly_decision_cron.run(agent, settings, vault_client=vault_client)
+            )
+        )
 
     log.info("AlphaScout is live!")
     yield

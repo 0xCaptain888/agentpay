@@ -46,6 +46,10 @@ class Paywall:
         self.nonces: dict[str, NonceRecord] = {}
 
     async def __call__(self, request: Request, response: Response) -> None:
+        # Defensive: refuse requests if recipient_ata was never updated from placeholder
+        if self.recipient_ata == "11111111111111111111111111111111":
+            raise HTTPException(503, "Service warming up, retry in 30s")
+
         sig = request.headers.get("X-Payment")
         nonce = request.headers.get("X-Payment-Nonce")
 

@@ -4,7 +4,14 @@ import { paywall, InMemoryNonceStore } from "@agentpay/sdk-ts";
 
 const app = express();
 const conn = new Connection(process.env.RPC_URL || "https://api.devnet.solana.com");
-const VAULT_ATA = new PublicKey(process.env.VAULT_ATA || "11111111111111111111111111111111");
+
+if (!process.env.VAULT_ATA || process.env.VAULT_ATA === "11111111111111111111111111111111") {
+  throw new Error(
+    "VAULT_ATA env var required. Set it to your vault's USDC ATA address.\n" +
+    "Example: export VAULT_ATA=2EoLQwEHNy4gqeuMws5zhzpjKw6dnoUax3V1obhiqNuP"
+  );
+}
+const VAULT_ATA = new PublicKey(process.env.VAULT_ATA);
 
 // 3 lines to add paywall to any endpoint
 app.get("/data", paywall({

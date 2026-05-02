@@ -59,6 +59,19 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-12 pt-6 border-t border-border text-xs text-muted flex flex-wrap gap-4">
+        {process.env.NEXT_PUBLIC_VAULT_ATA && (
+          <>
+            <a
+              href={`https://explorer.solana.com/address/${process.env.NEXT_PUBLIC_VAULT_ATA}?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              Vault: {process.env.NEXT_PUBLIC_VAULT_ATA.slice(0, 8)}...
+            </a>
+            <span>·</span>
+          </>
+        )}
         <a
           href={`https://explorer.solana.com/address/${process.env.NEXT_PUBLIC_PROGRAM_ID}?cluster=devnet`}
           target="_blank"
@@ -69,6 +82,8 @@ export default function Home() {
         </a>
         <span>·</span>
         <a href="https://github.com/0xCaptain888/agentpay" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
+        <span>·</span>
+        <a href="https://x.com/alphascout_ai" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">@alphascout_ai</a>
         <span>·</span>
         <span>Built with AgentPay · Solana Frontier Hackathon</span>
       </footer>
