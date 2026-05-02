@@ -38,10 +38,6 @@
 │  │   - SpendingPolicy (per-tx, per-day, allowlist)        │  │
 │  │   - USDC ATA owned by vault PDA                        │  │
 │  └────────────────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │  Helius Webhook → monitor vault fund flows             │  │
-│  │             → push to Dashboard real-time              │  │
-│  └────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -168,9 +164,9 @@ agentpay/
 | Contract language | Anchor 0.30+ | Mature, well-documented, avoids native Rust pitfalls |
 | Stablecoin | Devnet USDC (`4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`) | Judges understand USDC; feels like real payments |
 | Anti-replay | nonce + SPL Memo + 5-min server cache | Simple, effective, no complex state machines |
-| Agent LLM | OpenAI gpt-4o-mini | Cost-effective, fast, reliable |
+| Agent LLM | OpenAI-compatible (DeepSeek, GPT, etc.) | Cost-effective, fast, flexible |
 | Agent framework | LangChain + custom ReAct loop | Mature ecosystem, good tool integration |
-| On-chain indexing | Helius webhooks + SWR polling | No custom indexer needed |
+| On-chain indexing | RPC polling + SWR | Simple, no external dependencies |
 
 ## Smart Contract Instructions
 
@@ -214,20 +210,20 @@ The agent cannot exceed these limits even if compromised. The owner (human) reta
 
 ```bash
 # Chain
-RPC_URL=https://devnet.helius-rpc.com/?api-key=...
+RPC_URL=https://api.devnet.solana.com
 PROGRAM_ID=<your program id>
 USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 
 # Agent
 AGENT_KEYPAIR_PATH=/secrets/agent.json
 OPENAI_API_KEY=sk-...
-LLM_MODEL=gpt-4o-mini
+OPENAI_API_BASE=https://api.deepseek.com  # optional, for non-OpenAI providers
+LLM_MODEL=deepseek-chat
 
-# Twitter (optional)
-TWITTER_CONSUMER_KEY=...
-TWITTER_CONSUMER_SECRET=...
-TWITTER_ACCESS_TOKEN=...
-TWITTER_ACCESS_TOKEN_SECRET=...
+# Supplier USDC ATAs (run scripts/setup-vendors.sh)
+SUPPLIER_USDC_ATA_OPENAI=<vendor-ata>
+SUPPLIER_USDC_ATA_RPC=<vendor-ata>
+SUPPLIER_USDC_ATA_TWITTER=<vendor-ata>
 
 # Dashboard
 ALPHASCOUT_URL=https://alpha-scout-prod.up.railway.app
@@ -237,14 +233,16 @@ NEXT_PUBLIC_VAULT_AUTHORITY=<agent pubkey>
 
 ## Development Status
 
-- [x] Day 1: Project scaffold, monorepo setup
-- [x] Day 2: AgentVault smart contract (4 instructions, 7 error codes, full test suite)
-- [x] Day 3: TypeScript SDK + HTTP 402 Express/Next.js middleware
-- [x] Day 3-4: Python Agent SDK (vault client + FastAPI paywall)
-- [x] Day 4: AlphaScout Agent (research pipeline, treasury, social, cron tasks)
-- [x] Day 5: Dashboard (Next.js, real-time stats, uptime counter, tx feed)
-- [x] Day 6: Example integrations (TS + Python), end-to-end validation
-- [ ] Day 7-9: Pitch, demo video, submission
+- [x] Day 1: Project scaffold, monorepo setup, Anchor workspace
+- [x] Day 1: AgentVault smart contract (4 instructions, 7 error codes)
+- [x] Day 2: Contract tests, devnet deployment
+- [x] Day 2: TypeScript SDK + HTTP 402 Express/Next.js middleware
+- [x] Day 3: Python Agent SDK (vault client + FastAPI paywall)
+- [x] Day 3: Anti-replay memo verification (nonce binding)
+- [x] Day 4: AlphaScout Agent (research pipeline, treasury, cron tasks)
+- [x] Day 4: Dashboard (Next.js, real-time stats, uptime counter)
+- [x] Day 5: Example integrations (TS + Python), Dockerfile, deployment
+- [ ] Day 6-9: Final polish, demo video, submission
 
 ## Resilience
 

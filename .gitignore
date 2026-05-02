@@ -47,3 +47,4 @@ agent-keypair.json
 *.pem
 *.key
 secrets/
+vendors/
