@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     rpc_url: str = "https://api.devnet.solana.com"
     # Default = the program ID baked into lib.rs at build time.
     # If you redeploy with a different keypair, override via env var PROGRAM_ID.
-    program_id: str = "3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s"
+    program_id: str = "5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N"
     usdc_mint: str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
     agent_keypair_path: str = "./agent-keypair.json"
     # Priority over agent_keypair_path — accepts the keypair byte array as JSON string.

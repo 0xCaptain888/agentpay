@@ -40,14 +40,14 @@ import * as os from "os";
 // Configuration — these match the keypairs you already generated
 // ============================================================================
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
-const PROGRAM_ID = new PublicKey("3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s");
+const PROGRAM_ID = new PublicKey("5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N");
 const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 // 3 vendors that AlphaScout pays
 const VENDORS: Record<string, string> = {
-  openai:  "ab6mv9e521VQowbBLGbDatcVFUnHiKehWT5fig1daHK",
-  rpc:     "CZG74trdHbbSBasPZo9pK9yTJ9pj9JRDU39K8PR2mQK2",
-  twitter: "48Zag96o3eZ4RL7N1VRWvUqBAGewxmFR2doLKLxtE17e",
+  openai:  "FeTNgxgY88REi6TH7jW6cnmDLBMHw2AtV8a3HUfWdW8M",
+  rpc:     "BW1RLwCmpWkWpvxGaMMfgdWT1Z98dBnBkUpX78hqSyJz",
+  twitter: "Fq6nTGckY54u6CcJTWRaFfeEyQp69J4Ne4HjBCRVnyZg",
 };
 
 // Policy
@@ -140,21 +140,6 @@ function dim(s: string): string { return `\x1b[2m${s}\x1b[0m`; }
   console.log(`Vault PDA: ${vaultPda.toBase58()} ${dim(`(bump=${vaultBump})`)}`);
   console.log(`Vault ATA: ${vaultAta.toBase58()}`);
   console.log("");
-
-  // Sanity: did we derive the same PDA you got pre-computed?
-  const EXPECTED_VAULT_PDA = "2zeSyVyqPYfzcYEJGqFt6c6weZKedK9XC4MFrquWbkay";
-  const EXPECTED_VAULT_ATA = "2EoLQwEHNy4gqeuMws5zhzpjKw6dnoUax3V1obhiqNuP";
-  if (vaultPda.toBase58() !== EXPECTED_VAULT_PDA) {
-    console.warn(
-      `⚠️  Derived vault PDA ${vaultPda.toBase58()} ≠ expected ${EXPECTED_VAULT_PDA}. ` +
-      `Either agent keypair changed or program ID drifted.`
-    );
-  }
-  if (vaultAta.toBase58() !== EXPECTED_VAULT_ATA) {
-    console.warn(
-      `⚠️  Derived vault ATA ${vaultAta.toBase58()} ≠ expected ${EXPECTED_VAULT_ATA}.`
-    );
-  }
 
   // ---- 5. Check whether vault is already initialized ----
   const existing = await conn.getAccountInfo(vaultPda);

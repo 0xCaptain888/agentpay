@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.devnet]
-agent_vault = "3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s"
+agent_vault = "5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N"
 
 [registry]
 url = "https://api.apr.dev"
