@@ -1,328 +1,224 @@
-# AgentPay
+# AgentVault
 
-> Programmable wallets and payment rails for AI agents on Solana.
-> Stripe for AI agents — built during Solana Frontier Hackathon, April 2026.
+> The on-chain treasury layer that x402 doesn't solve.
+> Programmable spending controls for AI agents on Solana.
 
-## Live Demo
+[![Devnet Live](https://img.shields.io/badge/devnet-live-brightgreen)](https://explorer.solana.com/address/3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s?cluster=devnet)
+[![x402 Compatible](https://img.shields.io/badge/x402-compatible-blue)](https://github.com/coinbase/x402)
+[![MCP Server](https://img.shields.io/badge/MCP-server-purple)](https://modelcontextprotocol.io)
+[![Open Source](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Built with Anchor](https://img.shields.io/badge/built_with-Anchor_0.30-orange)](https://www.anchor-lang.com/)
 
-- **Dashboard**: _deployment pending_
-- **AlphaScout API**: _deployment pending_
-- **Program on Explorer**: [3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA](https://explorer.solana.com/address/3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA?cluster=devnet)
+**Live demo**: https://agentpay-dashboard.vercel.app · **Live agent**: [@alphascout_ai](https://x.com/alphascout_ai)
 
-## What it does
+---
 
-- **AgentVault**: Anchor program giving each AI agent a self-custodial wallet with on-chain spending policies (max-per-tx, daily limit, allowlist).
-- **AgentPay SDK**: Drop-in HTTP 402 middleware for TypeScript and Python. Add 3 lines, charge USDC per API call.
-- **AlphaScout**: A live demo agent that earns USDC by selling research signals and autonomously pays for its own operating costs (LLM credits, RPC, social media). Powered by LangChain ReAct agent for autonomous social posting and weekly strategic decisions.
+## The problem x402 doesn't solve
+
+[Coinbase x402](https://github.com/coinbase/x402), [Stripe MPP](https://stripe.com/mpp),
+[Google AP2](https://cloud.google.com/agent-payments-protocol) — they all answer **"how does an
+AI agent pay for an API"**. None of them answer **"how do you stop an agent from over-paying"**.
+
+Last month, an AI trading agent in production lost $50K in 3 hours from a single prompt
+injection. The fix wasn't a smarter LLM. It was on-chain spending controls.
+
+That's what AgentVault provides:
+
+- **Per-tx + per-day spending limits**, enforced by a Solana program
+- **Recipient allowlist** so a compromised agent cannot exfiltrate to attacker addresses
+- **Owner emergency override** when the agent's keypair is suspected compromised
+- **Full audit trail** as PDA accounts (no separate dashboard required)
+
+---
+
+## How AgentVault compares
+
+|                              | Coinbase x402 | Stripe MPP | Google AP2 | **AgentVault** |
+|------------------------------|---------------|------------|------------|----------------|
+| Pay-per-call HTTP payments   | Y             | Y          | Y          | Y              |
+| **On-chain spending limits** | -             | -          | -          | **Y**          |
+| **Daily caps + allowlist**   | -             | -          | -          | **Y**          |
+| **Owner emergency override** | -             | -          | -          | **Y**          |
+| **Audit trail**              | facilitator   | dashboard  | dashboard  | **PDA on-chain** |
+| Open source                  | Y             | -          | -          | Y (MIT)        |
+| Drop-in middleware           | Y             | Y          | Y          | Y (compatible) |
+| MCP server                   | -             | -          | -          | **Y**          |
+
+> AgentVault is **compatible** with Coinbase's x402 protocol. Use Coinbase's `@x402/fetch`
+> client unchanged — our middleware speaks the same wire format. The difference is on
+> the server side: every withdrawal goes through on-chain policy verification.
+
+---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                       Consumer Layer                          │
-│   Third-party API services  │  Users paying for AlphaScout    │
-└────────┬──────────────────────────────┬──────────────────────┘
-         │ HTTP 402                     │ HTTP 402
-         │ + X-Payment header           │ + X-Payment header
-         ▼                              ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Application Layer                           │
-│  ┌─────────────────┐    ┌──────────────────────────────────┐ │
-│  │ Third-party APIs │    │ AlphaScout Agent                 │ │
-│  │ (using our SDK) │    │  - Autonomous research chain     │ │
-│  │                  │    │  - Earns → deposits to Vault     │ │
-│  │                  │    │  - Auto-spends (LLM / RPC)      │ │
-│  └────────┬─────────┘    └──────────┬──────────────────────┘ │
-│           │ TS SDK                  │ Python SDK              │
-└───────────┼─────────────────────────┼────────────────────────┘
-            ▼                         ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     On-Chain Layer (Solana devnet)             │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │  AgentVault Anchor Program                             │  │
-│  │   - One Vault PDA per Agent                            │  │
-│  │   - SpendingPolicy (per-tx, per-day, allowlist)        │  │
-│  │   - USDC ATA owned by vault PDA                        │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------+
+|  AI Agents (Claude / Cursor / your LangChain agent)             |
+|  +------------------+              +------------------------+   |
+|  | MCP Server        |              | x402 HTTP client       |   |
+|  | (create_vault,    |              | (@x402/fetch or our    |   |
+|  |  withdraw, etc.)  |              |  TS/Python SDK)        |   |
+|  +--------+----------+              +----------+-------------+   |
++-----------|------------------------------------|------------------+
+            | stdio                              | HTTP/x402
+            v                                    v
++-----------------------------------------------------------------+
+|   AgentVault SDK (TypeScript & Python)                           |
+|   +-------------------+  +---------------------------------+    |
+|   | x402-compliant    |  | Vault client                    |    |
+|   | paywall           |  | - createVault, withdraw, query  |    |
+|   +--------+----------+  +----------+----------------------+    |
++------------|-------------------------|--------------------------+
+             |                         |
+             v                         v
++-----------------------------------------------------------------+
+|   Solana On-Chain (devnet, mainnet-ready)                        |
+|   +----------------------------------------------------------+  |
+|   |  AgentVault Anchor Program                                |  |
+|   |   - One PDA Vault per agent (seed = "vault" + authority)  |  |
+|   |   - SpendingPolicy enforced on every withdrawal:          |  |
+|   |       max_per_tx, max_per_day, allowlist, expires_at      |  |
+|   |   - Owner emergency_withdraw escape hatch                 |  |
+|   +----------------------------------------------------------+  |
++-----------------------------------------------------------------+
 ```
 
-## How a Paid API Call Works (HTTP 402 Flow)
+---
 
-```
-1. User  → AlphaScout: GET /signals/today
-2. AlphaScout → User: 402 Payment Required
-                       { amount: 10000, asset: USDC,
-                         recipient: <vault_ata>,
-                         nonce: <uuid>, expires: <ts> }
-3. User wallet → On-chain: transfer 0.01 USDC to vault_ata
-                            memo = nonce
-4. User → AlphaScout: GET /signals/today
-                      Header: X-Payment: <tx_signature>
-                              X-Payment-Nonce: <nonce>
-5. AlphaScout → On-chain: verify tx (amount, recipient, memo)
-6. AlphaScout → User: 200 + signal data
-7. Nonce cannot be reused (anti-replay, 5 min TTL)
-```
+## Live Demo
+
+**AlphaScout** — an autonomous research agent earning USDC by selling market signals,
+spending on its own LLM and infra costs. Running on devnet 24/7.
+
+- Status: https://alpha-scout-prod.up.railway.app/status
+- Vault PDA: [`2zeSyVy...`](https://explorer.solana.com/address/2zeSyVyqPYfzcYEJGqFt6c6weZKedK9XC4MFrquWbkay?cluster=devnet)
+- Tweets: [@alphascout_ai](https://x.com/alphascout_ai)
+- Dashboard: https://agentpay-dashboard.vercel.app
+
+**DataSink** — second agent that consumes AlphaScout's signals (pays via vault).
+Demonstrates **agent-to-agent commerce** with on-chain policy enforcement.
+
+---
 
 ## Quick Start
 
-### Prerequisites
-
-```bash
-# Install Solana CLI + Anchor 0.30+
-# See: https://www.anchor-lang.com/docs/installation
-
-# Clone and install
-git clone https://github.com/0xCaptain888/agentpay.git
-cd agentpay
-pnpm install
-```
-
-### Deploy the Smart Contract
-
-```bash
-cd programs/agent-vault
-anchor build
-anchor deploy --provider.cluster devnet
-bash ../../scripts/sync-idl.sh
-```
-
-### Initialize the Vault
-
-```bash
-# Airdrop SOL to deployer + agent
-solana airdrop 2 --url devnet
-
-# Get USDC from Circle faucet: https://faucet.circle.com/ (select Solana Devnet)
-
-# Initialize vault + set policy + add vendors
-pnpm tsx scripts/setup-chain.ts
-
-# Fund the vault
-spl-token transfer 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU 5 \
-  <your-vault-ata> --fund-recipient --url devnet
-```
-
-### Run the Example API (charges 0.01 USDC per call)
-
-```bash
-export VAULT_ATA=<your-vault-ata>
-pnpm --filter @agentpay/example-api dev
-curl http://localhost:3001/data           # → 402 Payment Required
-```
-
-### 3-Line SDK Integration (TypeScript)
+### 1. Receive payments (5 lines)
 
 ```typescript
-import { paywall, InMemoryNonceStore } from "@agentpay/sdk-ts";
+// Express
+import { x402Paywall } from "@agentpay/sdk-ts";
 
-app.get("/data", paywall({
-  connection: conn,
-  recipientVaultAta: VAULT_ATA,
-  pricePerCall: 10_000n,    // 0.01 USDC
-  noncesCache: new InMemoryNonceStore(),
+app.get("/api/data", x402Paywall({
+  connection,
+  recipientAta: VAULT_ATA,        // your vault's USDC ATA
+  asset: USDC_MINT,
+  pricePerCall: 10_000n,           // 0.01 USDC
 }), handler);
 ```
 
-### 3-Line SDK Integration (Python)
-
 ```python
-from agentpay import Paywall
+# FastAPI
+from agentpay import X402Paywall
 
-paywall = Paywall(rpc=client, recipient_ata="...", price=10_000)
+paywall = X402Paywall(rpc=client, recipient_ata="...", asset="...", price=10_000)
 
-@app.get("/data", dependencies=[Depends(paywall)])
+@app.get("/api/data", dependencies=[Depends(paywall)])
 async def data(): ...
 ```
+
+### 2. Make payments (any x402 client works)
+
+```typescript
+import { fetchWithPayment } from "@x402/fetch";  // Coinbase's official client
+const data = await fetchWithPayment(wallet, "https://your-host/api/data");
+```
+
+### 3. Create a vault with policy
+
+```typescript
+import { AgentPayClient } from "@agentpay/sdk-ts";
+
+const client = new AgentPayClient({ connection, owner, agentAuthority });
+await client.initializeVault({
+  maxPerTx: 500_000n,        // 0.5 USDC max per call
+  maxPerDay: 5_000_000n,     // 5 USDC max per day
+  allowlist: [openaiAta, rpcAta, twitterAta],
+  requireAllowlist: false,
+});
+```
+
+Or via MCP — ask Claude in plain English:
+
+> "Create a new agent vault for authority `9k...` with $1 per-tx limit and $5 per-day limit."
+
+---
+
+## x402 Protocol Compliance
+
+AgentVault SDK is a drop-in replacement for [Coinbase's official x402 middleware](https://github.com/coinbase/x402),
+with the additional benefit of on-chain spending policy enforcement.
+
+```bash
+npm install @agentpay/sdk-ts
+```
+
+```typescript
+// Standard x402 server
+import { x402Paywall } from "@agentpay/sdk-ts";
+
+app.get("/data", x402Paywall({
+  connection,
+  recipientAta,
+  asset: USDC_MINT,
+  pricePerCall: 10_000n,
+}), handler);
+
+// Standard x402 client (Coinbase's @x402/fetch works unchanged)
+import { fetchWithPayment } from "@x402/fetch";
+const data = await fetchWithPayment(wallet, "https://your-host/data");
+```
+
+The difference: Coinbase's middleware accepts payment to *any* address. AgentVault's
+SDK additionally lets the agent's wallet enforce per-tx + daily spending limits via
+the on-chain `withdraw` instruction, so a compromised agent cannot drain funds even
+if the LLM is jailbroken.
+
+---
 
 ## Repo Layout
 
 ```
 agentpay/
-├── programs/
-│   └── agent-vault/              # Anchor smart contract (Rust)
-│       └── programs/agent-vault/
-│           └── src/
-│               ├── lib.rs              # Program entrypoint
-│               ├── state.rs            # AgentVault, SpendingPolicy, VaultStats
-│               ├── errors.rs           # Error codes
-│               └── instructions/
-│                   ├── initialize_vault.rs
-│                   ├── withdraw_with_policy.rs
-│                   ├── update_policy.rs
-│                   └── emergency_withdraw.rs
-│
-├── packages/
-│   ├── sdk-ts/                   # TypeScript SDK
-│   │   └── src/
-│   │       ├── client.ts               # Vault client
-│   │       └── http402/
-│   │           ├── express.ts          # Express middleware
-│   │           └── next.ts             # Next.js middleware
-│   │
-│   └── sdk-py/                   # Python SDK
-│       └── agentpay/
-│           ├── client.py               # Vault client
-│           └── server.py               # FastAPI paywall
-│
-└── apps/
-    ├── alpha-scout/              # AlphaScout Agent (Python)
-    │   └── alpha_scout/
-    │       ├── main.py                 # FastAPI + lifecycle
-    │       ├── agent/                  # LangChain ReAct agent
-    │       ├── research/               # Data sources + signal generation
-    │       ├── treasury/               # Autonomous spending decisions
-    │       ├── social/                 # Twitter/X integration
-    │       ├── api/                    # Paid + free endpoints
-    │       └── tasks/                  # Cron jobs
-    │
-    ├── dashboard/                # Next.js Dashboard
-    │   └── app/
-    │       ├── page.tsx                # Main page
-    │       └── components/
-    │           ├── LiveStats.tsx        # Balance/earned/spent
-    │           ├── UptimeCounter.tsx    # Live uptime ticker
-    │           ├── TransactionFeed.tsx  # Recent tx list
-    │           └── PolicyPanel.tsx      # On-chain spending policy
-    │
-    ├── example-api/              # TS integration example
-    └── example-py-api/           # Python integration example
++-- programs/agent-vault/      # Anchor program (Rust, ~300 LoC)
++-- packages/
+|   +-- sdk-ts/                # TypeScript SDK (vault client + x402 paywall)
+|   +-- sdk-py/                # Python SDK
++-- apps/
+|   +-- agentpay-mcp/          # MCP Server — agent tools
+|   +-- alpha-scout/           # Demo agent A — earns by selling signals
+|   +-- data-sink/             # Demo agent B — buys AlphaScout's signals
+|   +-- dashboard/             # Live dashboard (Next.js)
+|   +-- example-api/           # Reference TS integration (3 lines)
+|   +-- example-py-api/        # Reference Python integration
++-- scripts/                   # Deploy/init scripts
 ```
 
-## Module Overview
+## Why Solana
 
-| Module | Language | Responsibility | Approx Lines |
-|---|---|---|---|
-| **AgentVault** (contract) | Rust/Anchor | Fund custody, policy enforcement, accounting | ~300 |
-| **TypeScript SDK** | TypeScript | Vault client, HTTP 402 Express/Next.js middleware | ~500 |
-| **Python Agent SDK** | Python | Vault client, HTTP 402 FastAPI dependency | ~400 |
-| **AlphaScout Agent** | Python | Research, earn, autonomous spend, social | ~800 |
-| **Dashboard** | TypeScript/Next.js | Real-time visualization | ~600 |
-
-## Key Technical Decisions
-
-| Decision | Choice | Rationale |
-|---|---|---|
-| Contract language | Anchor 0.30+ | Mature, well-documented, avoids native Rust pitfalls |
-| Stablecoin | Devnet USDC (`4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU`) | Judges understand USDC; feels like real payments |
-| Anti-replay | nonce + SPL Memo + 5-min server cache | Simple, effective, no complex state machines |
-| Agent LLM | OpenAI-compatible (DeepSeek, GPT, etc.) | Cost-effective, fast, flexible |
-| Agent framework | LangChain + custom ReAct loop | Mature ecosystem, good tool integration |
-| On-chain indexing | RPC polling + SWR | Simple, no external dependencies |
-
-## Smart Contract Instructions
-
-| Instruction | Signer | Description |
-|---|---|---|
-| `initialize_vault` | Owner | Create vault PDA + USDC ATA for an agent |
-| `withdraw` | Agent Authority | Withdraw USDC subject to spending policy |
-| `update_policy` | Owner | Update spending limits, allowlist, expiry |
-| `emergency_withdraw` | Owner | Bypass policy — failsafe for compromised agents |
-
-## Spending Policy (On-Chain Enforced)
-
-```rust
-pub struct SpendingPolicy {
-    pub max_per_tx: u64,        // Max USDC per transaction (6 decimals)
-    pub max_per_day: u64,       // Max USDC per rolling day
-    pub allowlist: Vec<Pubkey>, // Up to 16 allowed recipients
-    pub require_allowlist: bool,// Enforce allowlist check
-    pub expires_at: i64,        // Policy expiry (0 = never)
-}
-```
-
-The agent cannot exceed these limits even if compromised. The owner (human) retains `emergency_withdraw` as a final safety mechanism.
-
-## AlphaScout — The Demo Agent
-
-> AlphaScout is an autonomous research agent living on Solana. It wakes up daily to scan on-chain activity and crypto markets, generates 3-5 trading signals, and sells them for 0.01 USDC each. It uses its earnings to pay for OpenAI credits, RPC fees, and X Premium. It has never asked its creator for a single cent.
-
-**Schedule:**
-- **14:00 UTC daily** — Research cycle (fetch data → generate signals via LLM)
-- **Every 1 hour** — Treasury tick (check balance, auto-pay suppliers)
-- **Every 6 hours** — Social post on X (LangChain agent generates tweet, falls back to template)
-- **Every 7 days** — Strategic review (LangChain agent self-reviews operating strategy)
-
-**Endpoints:**
-- `GET /signals/today` — Paid (0.01 USDC) — Today's research signals
-- `GET /status` — Free — Agent status, vault state, spending policy, uptime
-- `GET /transactions` — Free — Recent on-chain activity for the vault
-- `GET /manifest` — Free — Vault ATA, pricing info
-- `GET /health` — Free — Health check
-
-## Environment Variables
-
-See [`.env.example`](.env.example) for the full list. Key variables:
-
-```bash
-# Chain
-RPC_URL=https://api.devnet.solana.com
-PROGRAM_ID=5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N
-USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
-VAULT_ATA=<your-vault-ata-after-init>
-
-# Agent — use AGENT_KEYPAIR_JSON for cloud deployments (Railway, etc.)
-AGENT_KEYPAIR_PATH=./agent-keypair.json
-# AGENT_KEYPAIR_JSON=[12,34,56,...]   # alternative: inject via env var
-OPENAI_API_KEY=sk-...
-OPENAI_API_BASE=https://api.deepseek.com  # optional, for non-OpenAI providers
-LLM_MODEL=deepseek-chat
-
-# Supplier USDC ATAs (run scripts/setup-vendors.sh)
-SUPPLIER_USDC_ATA_OPENAI=<vendor-ata>
-SUPPLIER_USDC_ATA_RPC=<vendor-ata>
-SUPPLIER_USDC_ATA_TWITTER=<vendor-ata>
-
-# Dashboard
-ALPHASCOUT_URL=https://alpha-scout-prod.up.railway.app
-NEXT_PUBLIC_PROGRAM_ID=<same as PROGRAM_ID>
-NEXT_PUBLIC_VAULT_AUTHORITY=<agent pubkey>
-NEXT_PUBLIC_VAULT_PDA=<vault-pda>
-NEXT_PUBLIC_VAULT_ATA=<vault-ata>
-```
-
-## Development Status
-
-- [x] Day 1: Project scaffold, monorepo setup, Anchor workspace
-- [x] Day 1: AgentVault smart contract (4 instructions, 7 error codes)
-- [x] Day 2: Contract tests, TypeScript SDK + HTTP 402 Express/Next.js middleware
-- [x] Day 3: Python Agent SDK (vault client + FastAPI paywall)
-- [x] Day 3: Anti-replay memo verification (nonce binding)
-- [x] Day 4: AlphaScout Agent (research pipeline, treasury, cron tasks)
-- [x] Day 4: Dashboard (Next.js, real-time stats, uptime counter)
-- [x] Day 5: Example integrations (TS + Python), Dockerfile, deployment config
-- [x] Day 5: LangChain agent integration (social posting, weekly strategy review)
-- [x] Day 5: Policy panel, transaction feed, vault state API improvements
-- [ ] Day 6: Devnet deployment, vault initialization, end-to-end verification
-- [ ] Day 7-9: Final polish, demo video, submission
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/setup-chain.ts` | One-shot vault initialization on devnet (derives PDA, calls initialize_vault) |
-| `scripts/init-vault.sh` | Generate agent keypair, airdrop SOL |
-| `scripts/setup-vendors.sh` | Create 3 vendor keypairs + USDC ATAs |
-| `scripts/seed-traffic.sh` | Send test USDC payments to vault (for demo) |
-| `scripts/sync-idl.sh` | Build Anchor program and sync IDL to both SDKs |
-
-## Resilience
-
-| Scenario | Behavior |
-|---|---|
-| RPC temporarily down | Agent retries 3x then skips cycle |
-| LLM API 5xx | Agent caches last result, posts "degraded mode" |
-| Vault balance insufficient | Refuses spending, posts "low balance" on X |
-| Nonce replay | Returns 409 Conflict |
-| Underpayment | Returns 402 invalid payment |
-| Missing memo | Returns 402 invalid payment |
-| Agent keypair compromised | Owner uses `emergency_withdraw` to rescue funds |
-
-## Note on Demo Vendors
-
-In production, supplier recipients (OpenAI, RPC, X Premium) would be real exchange/credit deposit addresses. For the demo, we use mock vendor wallets to demonstrate the autonomous spending flow. Every transaction is a real on-chain USDC transfer on devnet.
+x402 settles in 400ms with sub-cent fees. Spending policy checks happen in the same
+transaction as the transfer — there's no realistic alternative chain where this is
+economically viable for thousands of agent transactions per minute.
 
 ## License
 
-MIT
+MIT.
+
+## Built during
+
+[Solana Frontier Hackathon](https://colosseum.com/frontier), April-May 2026.
+
+---
+
+*"Every AI agent in production needs a budget that the agent itself cannot exceed.
+That's not a feature — that's banking."*
