@@ -34,42 +34,57 @@ impl<'info> WithdrawWithPolicy<'info> {
 }
 
 pub fn handler(ctx: Context<WithdrawWithPolicy>, amount: u64) -> Result<()> {
-    let vault = &mut ctx.accounts.vault;
-    let policy = &vault.policy;
     let now = Clock::get()?.unix_timestamp;
+    let agent_key = ctx.accounts.agent_authority.key();
+
+    // ---- Phase 1: Read & validate (no mutable borrows yet) ----
+    let (max_per_tx, max_per_day, expires_at, require_allowlist, allowlist, bump);
+    let (mut spent_today, mut current_day, total_spent, spend_count);
+    {
+        let vault = &ctx.accounts.vault;
+        max_per_tx = vault.policy.max_per_tx;
+        max_per_day = vault.policy.max_per_day;
+        expires_at = vault.policy.expires_at;
+        require_allowlist = vault.policy.require_allowlist;
+        allowlist = vault.policy.allowlist.clone();
+        bump = vault.bump;
+        spent_today = vault.stats.spent_today;
+        current_day = vault.stats.current_day;
+        total_spent = vault.stats.total_spent;
+        spend_count = vault.stats.spend_count;
+    }
 
     // 1. Expiry check
-    if policy.expires_at > 0 {
-        require!(now < policy.expires_at, VaultError::PolicyExpired);
+    if expires_at > 0 {
+        require!(now < expires_at, VaultError::PolicyExpired);
     }
 
     // 2. Per-tx limit
-    require!(amount <= policy.max_per_tx, VaultError::ExceedsTxLimit);
+    require!(amount <= max_per_tx, VaultError::ExceedsTxLimit);
 
     // 3. Allowlist
-    if policy.require_allowlist {
+    if require_allowlist {
         let recipient_authority = ctx.accounts.recipient_ata.owner;
         require!(
-            policy.allowlist.contains(&recipient_authority),
+            allowlist.contains(&recipient_authority),
             VaultError::NotAllowlisted
         );
     }
 
     // 4. Daily limit (rolling window)
     let today = now / 86_400;
-    let stats = &mut vault.stats;
-    if today != stats.current_day {
-        stats.current_day = today;
-        stats.spent_today = 0;
+    if today != current_day {
+        current_day = today;
+        spent_today = 0;
     }
-    let new_today = stats.spent_today
+    let new_today = spent_today
         .checked_add(amount).ok_or(VaultError::Overflow)?;
-    require!(new_today <= policy.max_per_day, VaultError::ExceedsDailyLimit);
+    require!(new_today <= max_per_day, VaultError::ExceedsDailyLimit);
 
-    // 5. Execute SPL token transfer (vault PDA as signer)
-    let agent_key = ctx.accounts.agent_authority.key();
-    let seeds = &[b"vault", agent_key.as_ref(), &[vault.bump]];
-    let signer_seeds = &[&seeds[..]];
+    // ---- Phase 2: CPI (use local seeds, vault as authority) ----
+    let bump_arr = [bump];
+    let seeds: &[&[u8]] = &[b"vault", agent_key.as_ref(), &bump_arr];
+    let signer_seeds = &[seeds];
 
     token::transfer(
         CpiContext::new_with_signer(
@@ -77,18 +92,20 @@ pub fn handler(ctx: Context<WithdrawWithPolicy>, amount: u64) -> Result<()> {
             Transfer {
                 from: ctx.accounts.vault_ata.to_account_info(),
                 to: ctx.accounts.recipient_ata.to_account_info(),
-                authority: vault.to_account_info(),
+                authority: ctx.accounts.vault.to_account_info(),
             },
             signer_seeds,
         ),
         amount,
     )?;
 
-    // 6. Update stats
-    stats.spent_today = new_today;
-    stats.total_spent = stats.total_spent
+    // ---- Phase 3: Write back stats ----
+    let vault = &mut ctx.accounts.vault;
+    vault.stats.spent_today = new_today;
+    vault.stats.current_day = current_day;
+    vault.stats.total_spent = total_spent
         .checked_add(amount).ok_or(VaultError::Overflow)?;
-    stats.spend_count += 1;
+    vault.stats.spend_count = spend_count + 1;
 
     emit!(SpendEvent {
         vault: vault.key(),
