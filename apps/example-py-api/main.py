@@ -16,7 +16,7 @@ VAULT_ATA = os.environ.get("VAULT_ATA")
 if not VAULT_ATA or VAULT_ATA == "11111111111111111111111111111111":
     raise RuntimeError(
         "VAULT_ATA env var required. Set it to your vault's USDC ATA address. "
-        "Example: export VAULT_ATA=2EoLQwEHNy4gqeuMws5zhzpjKw6dnoUax3V1obhiqNuP"
+        "Example: export VAULT_ATA=<your-vault-ata-after-init>"
     )
 
 rpc = AsyncClient(RPC_URL)

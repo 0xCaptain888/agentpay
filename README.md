@@ -258,7 +258,7 @@ See [`.env.example`](.env.example) for the full list. Key variables:
 ```bash
 # Chain
 RPC_URL=https://api.devnet.solana.com
-PROGRAM_ID=3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s
+PROGRAM_ID=5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N
 USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
 VAULT_ATA=<your-vault-ata-after-init>
 

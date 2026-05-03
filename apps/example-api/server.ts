@@ -8,7 +8,7 @@ const conn = new Connection(process.env.RPC_URL || "https://api.devnet.solana.co
 if (!process.env.VAULT_ATA || process.env.VAULT_ATA === "11111111111111111111111111111111") {
   throw new Error(
     "VAULT_ATA env var required. Set it to your vault's USDC ATA address.\n" +
-    "Example: export VAULT_ATA=2EoLQwEHNy4gqeuMws5zhzpjKw6dnoUax3V1obhiqNuP"
+    "Example: export VAULT_ATA=<your-vault-ata-after-init>"
   );
 }
 const VAULT_ATA = new PublicKey(process.env.VAULT_ATA);
