@@ -30,10 +30,11 @@ pub struct EmergencyWithdraw<'info> {
 }
 
 pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
-    let vault = &ctx.accounts.vault;
-    let authority = vault.authority;
-    let seeds = &[b"vault", authority.as_ref(), &[vault.bump]];
-    let signer_seeds = &[&seeds[..]];
+    let authority = ctx.accounts.vault.authority;
+    let bump = ctx.accounts.vault.bump;
+    let bump_arr = [bump];
+    let seeds: &[&[u8]] = &[b"vault", authority.as_ref(), &bump_arr];
+    let signer_seeds = &[seeds];
 
     token::transfer(
         CpiContext::new_with_signer(
@@ -49,7 +50,7 @@ pub fn handler(ctx: Context<EmergencyWithdraw>, amount: u64) -> Result<()> {
     )?;
 
     emit!(EmergencyWithdrawEvent {
-        vault: vault.key(),
+        vault: ctx.accounts.vault.key(),
         owner: ctx.accounts.owner.key(),
         amount,
         ts: Clock::get()?.unix_timestamp,
