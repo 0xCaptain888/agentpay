@@ -117,6 +117,11 @@ async def lifespan(app: FastAPI):
             ata = await vault_client.vault_ata()
             paywall_dep.recipient_ata = str(ata)
             log.info(f"Paywall recipient_ata set to {paywall_dep.recipient_ata}")
+
+            # Also update x402 paywall
+            from .api.routes import x402_paywall_dep
+            x402_paywall_dep.recipient_ata = str(ata)
+            log.info(f"x402 paywall recipient_ata set to {x402_paywall_dep.recipient_ata}")
         except Exception as e:
             log.warning(f"Could not update paywall recipient_ata: {e}")
 

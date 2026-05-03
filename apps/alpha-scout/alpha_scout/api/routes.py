@@ -1,13 +1,44 @@
 from fastapi import APIRouter, Depends, Request
 from .paywall import paywall_dep
 from datetime import datetime
+from agentpay import X402Paywall
+from solana.rpc.async_api import AsyncClient
+from ..config import settings
 
 router = APIRouter()
+
+# x402-compliant paywall (initialized with placeholder, updated at lifespan)
+_x402_rpc = AsyncClient(settings.rpc_url)
+x402_paywall_dep = X402Paywall(
+    rpc=_x402_rpc,
+    recipient_ata="11111111111111111111111111111111",  # set at lifespan
+    asset=settings.usdc_mint,
+    price=settings.price_per_signal,
+    network="solana-devnet",
+    description="AlphaScout daily research signals",
+)
 
 
 @router.get("/signals/today", dependencies=[Depends(paywall_dep)])
 async def signals_today(request: Request):
     """Paid endpoint — 0.01 USDC per call."""
+    cache = request.app.state.cache
+    signals = await cache.get_today()
+    if not signals:
+        return {
+            "date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "market_summary": "No signals generated yet today. Check back after 14:00 UTC.",
+            "signals": [],
+        }
+    return signals
+
+
+@router.get("/x402/signals/today", dependencies=[Depends(x402_paywall_dep)])
+async def x402_signals_today(request: Request):
+    """x402-compliant version of /signals/today.
+
+    Compatible with @x402/fetch and Coinbase x402 clients.
+    """
     cache = request.app.state.cache
     signals = await cache.get_today()
     if not signals:
