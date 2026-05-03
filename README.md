@@ -7,7 +7,7 @@
 
 - **Dashboard**: _deployment pending_
 - **AlphaScout API**: _deployment pending_
-- **Program on Explorer**: [5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N](https://explorer.solana.com/address/5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N?cluster=devnet)
+- **Program on Explorer**: [3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA](https://explorer.solana.com/address/3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA?cluster=devnet)
 
 ## What it does
 

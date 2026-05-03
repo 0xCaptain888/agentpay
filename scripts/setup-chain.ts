@@ -40,7 +40,7 @@ import * as os from "os";
 // Configuration — these match the keypairs you already generated
 // ============================================================================
 const RPC_URL = process.env.RPC_URL || "https://api.devnet.solana.com";
-const PROGRAM_ID = new PublicKey("5odLqG1PdHNoMExgTVqsybSh3Dh5cxg8xD37BSnWe24N");
+const PROGRAM_ID = new PublicKey("3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA");
 const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 
 // 3 vendors that AlphaScout pays

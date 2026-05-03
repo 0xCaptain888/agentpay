@@ -12,7 +12,7 @@ pub struct WithdrawWithPolicy<'info> {
         mut,
         seeds = [b"vault", agent_authority.key().as_ref()],
         bump = vault.bump,
-        has_one = authority @ VaultError::Unauthorized,
+        constraint = vault.authority == agent_authority.key() @ VaultError::Unauthorized,
     )]
     pub vault: Account<'info, AgentVault>,
 
