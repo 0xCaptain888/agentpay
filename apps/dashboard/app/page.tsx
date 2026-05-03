@@ -1,7 +1,9 @@
 import { LiveStats } from "./components/LiveStats";
-import { UptimeCounter } from "./components/UptimeCounter";
-import { TransactionFeed } from "./components/TransactionFeed";
+import { LiveTxStream } from "./components/LiveTxStream";
+import { ComparisonTable } from "./components/ComparisonTable";
+import { StressTest } from "./components/StressTest";
 import { PolicyPanel } from "./components/PolicyPanel";
+import { UptimeCounter } from "./components/UptimeCounter";
 
 export default function Home() {
   return (
@@ -9,7 +11,7 @@ export default function Home() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-3 h-3 rounded-full bg-accent animate-pulse" />
+          <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
           <h1 className="text-3xl font-bold tracking-tight">AlphaScout</h1>
         </div>
         <p className="text-muted text-sm">
@@ -18,17 +20,23 @@ export default function Home() {
         <UptimeCounter />
       </div>
 
-      {/* Live Stats */}
-      <LiveStats />
+      {/* Comparison Table */}
+      <ComparisonTable />
 
-      {/* Transaction Feed */}
-      <div className="mt-8">
-        <TransactionFeed />
+      {/* Live Stats */}
+      <div className="mt-6">
+        <LiveStats />
       </div>
 
-      {/* Policy Panel */}
-      <div className="mt-8">
+      {/* Transactions + Policy side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <LiveTxStream />
         <PolicyPanel />
+      </div>
+
+      {/* Stress Test */}
+      <div className="mt-6">
+        <StressTest />
       </div>
 
       {/* Signals Preview */}
