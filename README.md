@@ -3,13 +3,13 @@
 > The on-chain treasury layer that x402 doesn't solve.
 > Programmable spending controls for AI agents on Solana.
 
+**Demo**: https://j9ubbg8h.mule.page/ · **X**: [@0xCaptain888](https://x.com/0xCaptain888)
+
 [![Devnet Live](https://img.shields.io/badge/devnet-live-brightgreen)](https://explorer.solana.com/address/3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s?cluster=devnet)
 [![x402 Compatible](https://img.shields.io/badge/x402-compatible-blue)](https://github.com/coinbase/x402)
 [![MCP Server](https://img.shields.io/badge/MCP-server-purple)](https://modelcontextprotocol.io)
 [![Open Source](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Built with Anchor](https://img.shields.io/badge/built_with-Anchor_0.30-orange)](https://www.anchor-lang.com/)
-
-**Live demo**: https://agentpay-dashboard.vercel.app · **Live agent**: [@alphascout_ai](https://x.com/alphascout_ai)
 
 ---
 
