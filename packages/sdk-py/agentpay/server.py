@@ -7,9 +7,10 @@ from solders.pubkey import Pubkey
 from solana.rpc.async_api import AsyncClient
 import time
 import uuid
+import base64
 from dataclasses import dataclass
 
-from .client import USDC_DEVNET_MINT
+from .client import USDC_DEVNET_MINT, MEMO_PROGRAM_ID
 
 
 @dataclass
@@ -92,17 +93,20 @@ class Paywall:
             if not tx.value:
                 return False
 
-            # Parse token balance changes
             meta = tx.value.transaction.meta
+            if meta.err is not None:
+                return False
+
+            # ---- Step 1: Verify transfer amount ----
             pre = {
                 b.account_index: int(b.ui_token_amount.amount)
                 for b in (meta.pre_token_balances or [])
-                if b.mint == str(USDC_DEVNET_MINT)
+                if str(b.mint) == str(USDC_DEVNET_MINT)
             }
             post = {
                 b.account_index: int(b.ui_token_amount.amount)
                 for b in (meta.post_token_balances or [])
-                if b.mint == str(USDC_DEVNET_MINT)
+                if str(b.mint) == str(USDC_DEVNET_MINT)
             }
 
             # Find recipient_ata in account_keys
@@ -116,6 +120,38 @@ class Paywall:
             idx = account_keys.index(self.recipient_ata)
             delta = post.get(idx, 0) - pre.get(idx, 0)
             if delta < self.price:
+                return False
+
+            # ---- Step 2: Verify memo contains nonce ----
+            instructions = (
+                tx.value.transaction.transaction.message.instructions or []
+            )
+            memo_program_str = str(MEMO_PROGRAM_ID)
+            memo_found = False
+            for ix in instructions:
+                program_id = str(getattr(ix, "program_id", ""))
+                if program_id != memo_program_str:
+                    continue
+                data = getattr(ix, "data", None)
+                if data is None:
+                    continue
+                try:
+                    if isinstance(data, str):
+                        # Try base58 decode first
+                        try:
+                            import base58
+                            decoded = base58.b58decode(data).decode("utf-8", errors="replace")
+                        except Exception:
+                            decoded = data
+                    else:
+                        decoded = bytes(data).decode("utf-8", errors="replace")
+                    if nonce in decoded:
+                        memo_found = True
+                        break
+                except Exception:
+                    continue
+
+            if not memo_found:
                 return False
 
             return True
