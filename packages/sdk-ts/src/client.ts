@@ -28,7 +28,12 @@ export class AgentPayClient {
   }) {
     this.connection = new Connection(opts.rpcUrl, "confirmed");
     const provider = new AnchorProvider(this.connection, opts.walletAdapter, {});
-    this.program = new Program(opts.idl as any, opts.programId, provider);
+    // Anchor 0.30 API: inject programId into IDL's address field
+    const idlWithAddress = {
+      ...opts.idl,
+      address: opts.programId.toBase58(),
+    };
+    this.program = new Program(idlWithAddress as any, provider);
     this.usdcMint = opts.usdcMint;
   }
 
