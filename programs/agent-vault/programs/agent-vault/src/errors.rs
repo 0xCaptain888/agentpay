@@ -16,4 +16,6 @@ pub enum VaultError {
     AllowlistFull,
     #[msg("Math overflow")]
     Overflow,
+    #[msg("Fee rate too high (max 1000 bps = 10%)")]
+    FeeTooHigh,
 }

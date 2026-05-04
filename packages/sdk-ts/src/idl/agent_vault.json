@@ -17,8 +17,24 @@
       ],
       "args": [
         { "name": "agentId", "type": { "array": ["u8", 32] } },
-        { "name": "policy", "type": { "defined": "SpendingPolicy" } }
+        { "name": "policy", "type": { "defined": "SpendingPolicy" } },
+        { "name": "feeBps", "type": "u16" }
       ]
+    },
+    {
+      "name": "initializeFeeCollector",
+      "accounts": [
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "feeAuthority", "isMut": false, "isSigner": false },
+        { "name": "mint", "isMut": false, "isSigner": false },
+        { "name": "feeCollector", "isMut": true, "isSigner": false },
+        { "name": "feeCollectorAta", "isMut": true, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": []
     },
     {
       "name": "withdraw",
@@ -27,6 +43,8 @@
         { "name": "vault", "isMut": true, "isSigner": false },
         { "name": "vaultAta", "isMut": true, "isSigner": false },
         { "name": "recipientAta", "isMut": true, "isSigner": false },
+        { "name": "feeCollector", "isMut": true, "isSigner": false },
+        { "name": "feeCollectorAta", "isMut": true, "isSigner": false },
         { "name": "tokenProgram", "isMut": false, "isSigner": false }
       ],
       "args": [
@@ -70,7 +88,19 @@
           { "name": "agentId", "type": { "array": ["u8", 32] } },
           { "name": "createdAt", "type": "i64" },
           { "name": "policy", "type": { "defined": "SpendingPolicy" } },
+          { "name": "feeBps", "type": "u16" },
           { "name": "stats", "type": { "defined": "VaultStats" } }
+        ]
+      }
+    },
+    {
+      "name": "FeeCollector",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "totalCollected", "type": "u64" },
+          { "name": "bump", "type": "u8" }
         ]
       }
     }
@@ -111,6 +141,8 @@
         { "name": "vault", "type": "publicKey", "index": false },
         { "name": "recipient", "type": "publicKey", "index": false },
         { "name": "amount", "type": "u64", "index": false },
+        { "name": "feeAmount", "type": "u64", "index": false },
+        { "name": "netAmount", "type": "u64", "index": false },
         { "name": "ts", "type": "i64", "index": false }
       ]
     },
@@ -131,7 +163,8 @@
     { "code": 6003, "name": "PolicyExpired", "msg": "Policy has expired" },
     { "code": 6004, "name": "Unauthorized", "msg": "Unauthorized signer" },
     { "code": 6005, "name": "AllowlistFull", "msg": "Allowlist full (max 16)" },
-    { "code": 6006, "name": "Overflow", "msg": "Math overflow" }
+    { "code": 6006, "name": "Overflow", "msg": "Math overflow" },
+    { "code": 6007, "name": "FeeTooHigh", "msg": "Fee rate too high (max 1000 bps = 10%)" }
   ],
   "metadata": {
     "address": "AgntVLT1111111111111111111111111111111111111"

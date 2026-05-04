@@ -17,6 +17,9 @@ pub struct AgentVault {
     /// Policy
     pub policy: SpendingPolicy,
 
+    /// Protocol fee rate in basis points (100 = 1%). 0 = free
+    pub fee_bps: u16,
+
     /// Statistics
     pub stats: VaultStats,
 }
@@ -51,5 +54,20 @@ impl AgentVault {
     pub const LEN: usize = 8 +
         32 + 32 + 32 + 1 + 32 + 8 +
         8 + 8 + (4 + 32 * 16) + 1 + 8 +
+        2 + // fee_bps
         8 + 8 + 8 + 8 + 8 + 8;
+}
+
+#[account]
+pub struct FeeCollector {
+    /// Fee collector authority (protocol team or DAO address)
+    pub authority: Pubkey,
+    /// Total USDC collected (6 decimals)
+    pub total_collected: u64,
+    pub bump: u8,
+}
+
+impl FeeCollector {
+    pub const LEN: usize = 8 + 32 + 8 + 1;
+    pub const SEEDS: &'static [u8] = b"fee_collector";
 }

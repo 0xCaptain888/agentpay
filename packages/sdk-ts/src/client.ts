@@ -52,7 +52,8 @@ export class AgentPayClient {
   async createVault(
     agentAuthority: PublicKey,
     agentId: Buffer,
-    policy: SpendingPolicyInput
+    policy: SpendingPolicyInput,
+    feeBps: number = 30
   ): Promise<string> {
     return await this.program.methods
       .initializeVault(Array.from(agentId), {
@@ -61,7 +62,7 @@ export class AgentPayClient {
         allowlist: policy.allowlist ?? [],
         requireAllowlist: policy.requireAllowlist ?? false,
         expiresAt: new BN((policy.expiresAt ?? 0n).toString()),
-      })
+      }, feeBps)
       .accounts({ agentAuthority, mint: this.usdcMint })
       .rpc();
   }
@@ -83,5 +84,24 @@ export class AgentPayClient {
       opts.payerAta, this.usdcMint, recipientAta,
       opts.payer, opts.amount, 6
     );
+  }
+
+  async initializeFeeCollector(feeAuthority: PublicKey): Promise<string> {
+    return await this.program.methods
+      .initializeFeeCollector()
+      .accounts({ feeAuthority, mint: this.usdcMint })
+      .rpc();
+  }
+
+  async getFeeCollectorStats(): Promise<{ totalCollected: bigint; authority: string }> {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("fee_collector")],
+      this.program.programId
+    );
+    const account = await this.program.account.feeCollector.fetch(pda);
+    return {
+      totalCollected: BigInt((account as any).totalCollected.toString()),
+      authority: (account as any).authority.toBase58(),
+    };
   }
 }

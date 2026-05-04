@@ -1,15 +1,20 @@
+[toolchain]
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
 
 [programs.devnet]
-agent_vault = "3aWeD7m3YPfruph5yZkLruvvTf7T8yEqWrLC4FaAW9kA"
+agent_vault = "9ms651QWvGskQ1ZCdfUhAw1YfW5Pim8xdrV5xjJrPpWV"
+
+[programs.mainnet]
+agent_vault = "MAINNET_PROGRAM_ID_PLACEHOLDER"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

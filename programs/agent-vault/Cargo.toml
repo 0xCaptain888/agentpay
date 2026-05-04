@@ -10,6 +10,9 @@ proc-macro-crate = "=3.2.0"
 [workspace.dependencies.toml_edit]
 version = "=0.22.27"
 
+[workspace.dependencies.blake3]
+version = "=1.5.5"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
