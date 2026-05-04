@@ -4,7 +4,6 @@
 > Programmable spending controls for AI agents on Solana.
 
 [![Devnet Live](https://img.shields.io/badge/devnet-live-brightgreen)](https://explorer.solana.com/address/3iJbMYgjMCFVkvHQSoeAb9EiTbcXyFqDxh88n4b7BP2s?cluster=devnet)
-[![Mainnet Live](https://img.shields.io/badge/mainnet-live-brightgreen)](https://explorer.solana.com/address/MAINNET_PROGRAM_ID)
 [![x402 Compatible](https://img.shields.io/badge/x402-compatible-blue)](https://github.com/coinbase/x402)
 [![MCP Server](https://img.shields.io/badge/MCP-server-purple)](https://modelcontextprotocol.io)
 [![Open Source](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -76,7 +75,7 @@ That's what AgentVault provides:
              |                         |
              v                         v
 +-----------------------------------------------------------------+
-|   Solana On-Chain (devnet, mainnet-ready)                        |
+|   Solana On-Chain (devnet live · mainnet-ready)                        |
 |   +----------------------------------------------------------+  |
 |   |  AgentVault Anchor Program                                |  |
 |   |   - One PDA Vault per agent (seed = "vault" + authority)  |  |
@@ -102,31 +101,6 @@ spending on its own LLM and infra costs. Running on devnet 24/7.
 
 **DataSink** — second agent that consumes AlphaScout's signals (pays via vault).
 Demonstrates **agent-to-agent commerce** with on-chain policy enforcement.
-
----
-
-## Mainnet Deployment
-
-AgentVault is live on **Solana mainnet-beta**.
-
-[![Mainnet Live](https://img.shields.io/badge/mainnet-live-brightgreen)](https://explorer.solana.com/address/MAINNET_PROGRAM_ID)
-
-| | Address | Explorer |
-|---|---|---|
-| **Program** | `MAINNET_PROGRAM_ID` | [View](https://explorer.solana.com/address/MAINNET_PROGRAM_ID) |
-| **Demo Vault** | `MAINNET_VAULT_PDA` | [View](https://explorer.solana.com/address/MAINNET_VAULT_PDA) |
-| **Vault USDC** | `MAINNET_VAULT_ATA` | [View](https://explorer.solana.com/address/MAINNET_VAULT_ATA) |
-
-> The demo vault enforces a $0.50 per-tx / $5.00 per-day policy on mainnet.
-> A 0.3% protocol fee is collected to the fee collector PDA on every withdrawal.
-
-### Mainnet vs Devnet
-
-| | Devnet | Mainnet |
-|---|---|---|
-| Real USDC | No (Circle testnet) | **Yes** |
-| Policy enforcement | Yes | **Yes** |
-| Protocol fee | Yes | **Yes** |
 
 ---
 
