@@ -29,6 +29,7 @@ That's what AgentVault provides:
 - **Recipient allowlist** so a compromised agent cannot exfiltrate to attacker addresses
 - **Owner emergency override** when the agent's keypair is suspected compromised
 - **Full audit trail** as PDA accounts (no separate dashboard required)
+- **0.3% protocol fee** on every withdrawal — sustainable on-chain SaaS revenue model
 
 ---
 
@@ -41,6 +42,7 @@ That's what AgentVault provides:
 | **Daily caps + allowlist**   | -             | -          | -          | **Y**          |
 | **Owner emergency override** | -             | -          | -          | **Y**          |
 | **Audit trail**              | facilitator   | dashboard  | dashboard  | **PDA on-chain** |
+| **Protocol fee (revenue)**   | -             | -          | -          | **0.3% on-chain** |
 | Open source                  | Y             | -          | -          | Y (MIT)        |
 | Drop-in middleware           | Y             | Y          | Y          | Y (compatible) |
 | MCP server                   | -             | -          | -          | **Y**          |
@@ -80,6 +82,7 @@ That's what AgentVault provides:
 |   |   - One PDA Vault per agent (seed = "vault" + authority)  |  |
 |   |   - SpendingPolicy enforced on every withdrawal:          |  |
 |   |       max_per_tx, max_per_day, allowlist, expires_at      |  |
+|   |   - 0.3% protocol fee -> FeeCollector PDA (on-chain SaaS) |  |
 |   |   - Owner emergency_withdraw escape hatch                 |  |
 |   +----------------------------------------------------------+  |
 +-----------------------------------------------------------------+
@@ -216,7 +219,7 @@ if the LLM is jailbroken.
 
 ```
 agentpay/
-+-- programs/agent-vault/      # Anchor program (Rust, ~300 LoC)
++-- programs/agent-vault/      # Anchor program (Rust, ~400 LoC)
 +-- packages/
 |   +-- sdk-ts/                # TypeScript SDK (vault client + x402 paywall)
 |   +-- sdk-py/                # Python SDK
@@ -227,7 +230,8 @@ agentpay/
 |   +-- dashboard/             # Live dashboard (Next.js)
 |   +-- example-api/           # Reference TS integration (3 lines)
 |   +-- example-py-api/        # Reference Python integration
-+-- scripts/                   # Deploy/init scripts
++-- scripts/                   # Deploy/init scripts (devnet + mainnet)
++-- SECURITY.md                # Self-audit security report
 ```
 
 ## Why Solana
@@ -235,6 +239,27 @@ agentpay/
 x402 settles in 400ms with sub-cent fees. Spending policy checks happen in the same
 transaction as the transfer — there's no realistic alternative chain where this is
 economically viable for thousands of agent transactions per minute.
+
+## Business Model
+
+AgentVault collects a **0.3% protocol fee** on every agent withdrawal, enforced transparently on-chain via the `FeeCollector` PDA. This creates sustainable, usage-based revenue that scales directly with agent activity:
+
+- 100 agents x $5/day each = $500/day volume -> $1.50/day protocol revenue
+- 10,000 agents = $150/day = ~$55K/year
+- Fee rate (`fee_bps`) is configurable per vault (0 = free mode for public goods)
+- All fees are visible on-chain via the FeeCollector account
+
+---
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the full self-audit report, including:
+- Threat model and reentrancy analysis
+- Integer overflow protection
+- 10 security test cases covering edge cases and attack vectors
+- Known limitations and recommendations
+
+---
 
 ## License
 
