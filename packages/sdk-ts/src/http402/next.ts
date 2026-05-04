@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuid } from "uuid";
 import { Connection, PublicKey } from "@solana/web3.js";
-import type { NonceStore } from "./express";
-import { InMemoryNonceStore } from "./express";
+import { verifyPaymentTx } from "./verify";
+import type { NonceStore } from "./nonce";
+import { InMemoryNonceStore } from "./nonce";
 
 export interface NextPaywallOpts {
   connection: Connection;
@@ -50,9 +51,18 @@ export function nextPaywall(opts: NextPaywallOpts) {
       });
       if (!tx) return NextResponse.json({ error: "tx not found" }, { status: 402 });
 
+      const ok = verifyPaymentTx(tx, {
+        recipient: opts.recipientVaultAta,
+        minAmount: opts.pricePerCall,
+        memo: nonce,
+      });
+      if (!ok) return NextResponse.json({ error: "invalid payment" }, { status: 402 });
+
+      // Only mark as paid AFTER successful verification
       await nonces.set(nonce, { ...record, paid: true });
       return null; // pass through
     } catch (e) {
+      console.error("nextPaywall verification error", e);
       return NextResponse.json({ error: "verification failed" }, { status: 500 });
     }
   };
