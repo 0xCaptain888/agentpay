@@ -22,10 +22,15 @@ async def signals_today(request: Request):
 @router.get("/status")
 async def status(request: Request):
     """Free endpoint — public Agent status (for Dashboard)."""
-    vault_state = {"balance": 0, "total_received": 0, "total_spent": 0, "spent_today": 0}
+    vault_state = {
+        "balance": 0, "total_received": 0, "total_spent": 0,
+        "spent_today": 0, "max_per_day": 5_000_000, "max_per_tx": 500_000,
+        "remaining_today": 5_000_000, "allowlist_size": 0,
+    }
     try:
-        if hasattr(request.app.state, "client"):
-            vault_state = await request.app.state.client.get_vault_state()
+        if hasattr(request.app.state, "client") and request.app.state.client is not None:
+            raw_state = await request.app.state.client.get_vault_state()
+            vault_state.update(raw_state)
     except Exception:
         pass
 
@@ -44,8 +49,85 @@ async def status(request: Request):
         "boot_at": boot_at.isoformat(),
         "vault": vault_state,
         "last_research": last_research,
-        "twitter": "https://x.com/alphascout_ai",
     }
+
+
+@router.get("/transactions")
+async def transactions(request: Request, limit: int = 20):
+    """Recent on-chain activity for this agent's vault."""
+    if not hasattr(request.app.state, "client") or request.app.state.client is None:
+        return {"transactions": []}
+
+    client = request.app.state.client
+    try:
+        vault_ata = await client.vault_ata()
+        sigs = await client.client.get_signatures_for_address(vault_ata, limit=limit)
+        txs = []
+        for s in (sigs.value or []):
+            try:
+                tx = await client.client.get_transaction(
+                    s.signature,
+                    max_supported_transaction_version=0,
+                    commitment="confirmed",
+                )
+                if not tx.value or not tx.value.transaction.meta:
+                    continue
+                meta = tx.value.transaction.meta
+
+                # Parse token balance change for vault_ata
+                vault_ata_str = str(vault_ata)
+                account_keys = [
+                    str(k)
+                    for k in tx.value.transaction.transaction.message.account_keys
+                ]
+                if vault_ata_str not in account_keys:
+                    continue
+                idx = account_keys.index(vault_ata_str)
+
+                pre_bal = 0
+                post_bal = 0
+                for b in (meta.pre_token_balances or []):
+                    if b.account_index == idx:
+                        pre_bal = int(b.ui_token_amount.amount)
+                for b in (meta.post_token_balances or []):
+                    if b.account_index == idx:
+                        post_bal = int(b.ui_token_amount.amount)
+
+                delta = post_bal - pre_bal
+                if delta == 0:
+                    continue
+
+                # Try to extract memo
+                label = "USDC transfer"
+                instructions = tx.value.transaction.transaction.message.instructions or []
+                for ix in instructions:
+                    prog = str(getattr(ix, "program_id", ""))
+                    if "Memo" in prog:
+                        data = getattr(ix, "data", None)
+                        if data:
+                            try:
+                                if isinstance(data, str):
+                                    import base58
+                                    label = base58.b58decode(data).decode("utf-8", errors="replace")
+                                else:
+                                    label = bytes(data).decode("utf-8", errors="replace")
+                            except Exception:
+                                pass
+
+                txs.append({
+                    "signature": str(s.signature),
+                    "timestamp": s.block_time,
+                    "type": "earned" if delta > 0 else "spent",
+                    "amount": abs(delta) / 1_000_000,
+                    "label": label,
+                    "time": "",  # Frontend will compute relative time from timestamp
+                })
+            except Exception:
+                continue
+
+        return {"transactions": txs}
+    except Exception as e:
+        return {"transactions": [], "error": str(e)}
 
 
 @router.get("/manifest")
@@ -53,7 +135,7 @@ async def manifest(request: Request):
     """Public vault ATA so consumers know where to pay."""
     vault_ata = "unknown"
     try:
-        if hasattr(request.app.state, "client"):
+        if hasattr(request.app.state, "client") and request.app.state.client is not None:
             ata = await request.app.state.client.vault_ata()
             vault_ata = str(ata)
     except Exception:

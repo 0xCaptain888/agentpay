@@ -5,19 +5,21 @@ import logging
 log = logging.getLogger("social_cron")
 
 
-async def run(agent, twitter_client, settings, cache=None):
-    """Post to X every 6 hours."""
+async def run(twitter_client, settings, vault_client=None, cache=None):
+    """Post to X every 6 hours. Executes immediately on startup."""
+    # Initial warm-up delay, then first run
+    await asyncio.sleep(60)
     while True:
-        await asyncio.sleep(6 * 3600)  # 6 hours
         try:
             log.info("Running social cron")
 
             # Get vault state for the tweet
             vault_state = {"balance": 0, "total_received": 0, "total_spent": 0}
-            try:
-                vault_state = await agent.services["client"].get_vault_state()
-            except Exception:
-                pass
+            if vault_client is not None:
+                try:
+                    vault_state = await vault_client.get_vault_state()
+                except Exception:
+                    pass
 
             balance = vault_state.get("balance", 0) / 1_000_000
             earned = vault_state.get("total_received", 0) / 1_000_000
@@ -44,3 +46,4 @@ async def run(agent, twitter_client, settings, cache=None):
             log.info("Social post completed")
         except Exception as e:
             log.error(f"Social cron error: {e}", exc_info=True)
+        await asyncio.sleep(6 * 3600)  # 6 hours
