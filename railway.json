@@ -1,0 +1,12 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/alpha-scout/Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "uvicorn alpha_scout.main:app --host 0.0.0.0 --port $PORT",
+    "restartPolicyType": "ALWAYS",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 30
+  }
+}
