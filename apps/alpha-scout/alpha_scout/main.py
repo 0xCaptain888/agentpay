@@ -2,16 +2,21 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 from datetime import datetime
+from pathlib import Path
 import logging
+
+from agentpay import AgentPayClient
 
 from .config import settings
 from .api.routes import router
+from .api.paywall import paywall_dep
 from .research.sources import CoinGeckoSource, DeFiLlamaSource, HeliusSource
 from .research.analyzer import Analyzer
 from .research.cache import SignalCache
 from .social.twitter import TwitterClient
 from .treasury.manager import TreasuryManager
 from .agent.memory import AgentMemory
+from .agent.core import AlphaScoutAgent
 from .tasks import research_cron, treasury_cron, social_cron
 
 logging.basicConfig(
@@ -34,6 +39,7 @@ class ResearchService:
         self.analyzer = Analyzer(
             model=settings.llm_model,
             api_key=settings.openai_api_key,
+            api_base=settings.openai_api_base,
         )
 
     async def run_daily(self) -> dict:
@@ -67,6 +73,31 @@ class ResearchService:
         return signals.model_dump()
 
 
+def _try_create_client() -> AgentPayClient | None:
+    """Attempt to create an AgentPayClient from the configured keypair path.
+
+    Returns None if the keypair file is missing or invalid (e.g. dev mode).
+    """
+    keypair_path = Path(settings.agent_keypair_path)
+    if not keypair_path.exists():
+        log.warning(f"Keypair file not found at {keypair_path} — running without AgentPayClient")
+        return None
+    try:
+        keypair = settings.load_keypair()
+        idl_path = keypair_path.parent / "idl.json"
+        client = AgentPayClient(
+            rpc_url=settings.rpc_url,
+            program_id=settings.program_id,
+            agent_keypair=keypair,
+            idl_path=idl_path,
+        )
+        log.info("AgentPayClient initialized successfully")
+        return client
+    except Exception as e:
+        log.warning(f"Could not create AgentPayClient: {e} — running without it")
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("AlphaScout starting up...")
@@ -75,20 +106,51 @@ async def lifespan(app: FastAPI):
     memory = AgentMemory()
     research = ResearchService(settings)
     twitter = TwitterClient(settings)
-    treasury = TreasuryManager(client=None, memory=memory)
+
+    # Attempt to create the vault client; gracefully degrade if unavailable
+    vault_client = _try_create_client()
+    treasury = TreasuryManager(client=vault_client, memory=memory)
+
+    # Update paywall recipient_ata from the vault client if available
+    if vault_client is not None:
+        try:
+            ata = await vault_client.vault_ata()
+            paywall_dep.recipient_ata = str(ata)
+            log.info(f"Paywall recipient_ata set to {paywall_dep.recipient_ata}")
+        except Exception as e:
+            log.warning(f"Could not update paywall recipient_ata: {e}")
 
     # Store on app state
     app.state.cache = _signal_cache
     app.state.boot_at = datetime.utcnow()
     app.state.memory = memory
+    app.state.client = vault_client
+
+    # Initialize LangChain Agent (for decision-making tasks)
+    agent = None
+    if vault_client is not None and settings.openai_api_key:
+        try:
+            services = {
+                "client": vault_client,
+                "research": research,
+                "twitter": twitter,
+                "treasury": treasury,
+            }
+            agent = AlphaScoutAgent(settings, services)
+            app.state.agent = agent
+            log.info("LangChain AlphaScoutAgent initialized")
+        except Exception as e:
+            log.warning(f"Could not initialize AlphaScoutAgent: {e}")
 
     # Start background cron tasks
     tasks = [
         asyncio.create_task(
-            research_cron.run(None, settings, research_service=research, cache=_signal_cache)
+            research_cron.run(agent, settings, research_service=research, cache=_signal_cache)
         ),
         asyncio.create_task(treasury_cron.run(treasury, settings)),
-        asyncio.create_task(social_cron.run(None, twitter, settings, cache=_signal_cache)),
+        asyncio.create_task(
+            social_cron.run(twitter, settings, vault_client=vault_client, cache=_signal_cache)
+        ),
     ]
 
     log.info("AlphaScout is live!")
