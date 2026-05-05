@@ -1,15 +1,27 @@
+import os
 from solders.pubkey import Pubkey
 from datetime import datetime
 import logging
 
 log = logging.getLogger("treasury")
 
-# Mock supplier ATAs for demo
-MOCK_SUPPLIERS = {
-    "openai": "11111111111111111111111111111111",
-    "rpc": "11111111111111111111111111111111",
-    "twitter": "11111111111111111111111111111111",
+# Supplier USDC ATA (Associated Token Account) addresses.
+# Override via environment variables: SUPPLIER_USDC_ATA_OPENAI, etc.
+SUPPLIER_USDC_ATAS = {
+    "openai": os.environ.get("SUPPLIER_USDC_ATA_OPENAI"),
+    "rpc": os.environ.get("SUPPLIER_USDC_ATA_RPC"),
+    "twitter": os.environ.get("SUPPLIER_USDC_ATA_TWITTER"),
 }
+
+# Validate on import — warn if placeholders or missing
+_PLACEHOLDER = "11111111111111111111111111111111"
+for _name, _addr in SUPPLIER_USDC_ATAS.items():
+    if _addr is None or _addr == _PLACEHOLDER:
+        log.warning(
+            f"SUPPLIER_USDC_ATA_{_name.upper()} not set or is placeholder. "
+            "Treasury will not perform real on-chain spends to this supplier. "
+            "Run scripts/setup-vendors.sh to generate vendor keypairs."
+        )
 
 
 class TreasuryManager:
@@ -20,19 +32,42 @@ class TreasuryManager:
         self.client = client
         self.memory = memory
 
+    def _resolve_supplier(self, supplier: str) -> str | None:
+        """Resolve supplier name to USDC ATA address string."""
+        ata = SUPPLIER_USDC_ATAS.get(supplier)
+        if not ata or ata == "11111111111111111111111111111111":
+            log.warning(
+                f"No valid USDC ATA for supplier '{supplier}'. "
+                f"Set SUPPLIER_USDC_ATA_{supplier.upper()} env var."
+            )
+            return None
+        return ata
+
     async def check(self, supplier: str, amount_usdc: float) -> dict:
         """Check if a payment would pass policy."""
+        if self.client is None:
+            return {"can_spend": False, "reason": "client not initialized", "supplier": supplier}
+
+        recipient_str = self._resolve_supplier(supplier)
+        if not recipient_str:
+            return {"can_spend": False, "reason": f"no valid ATA for {supplier}", "supplier": supplier}
+
         amount_raw = int(amount_usdc * 1_000_000)
-        recipient = Pubkey.from_string(
-            MOCK_SUPPLIERS.get(supplier, MOCK_SUPPLIERS["openai"])
-        )
+        recipient = Pubkey.from_string(recipient_str)
         ok, reason = await self.client.can_spend(amount_raw, recipient)
         return {"can_spend": ok, "reason": reason, "supplier": supplier}
 
     async def pay(self, supplier: str, amount_usdc: float, memo: str = None) -> dict:
-        """Pay a supplier."""
+        """Pay a supplier. recipient is a USDC ATA address."""
+        if self.client is None:
+            log.error("pay() called but client is None — cannot execute on-chain spend")
+            return {"success": False, "reason": "client not initialized"}
+
+        recipient_str = self._resolve_supplier(supplier)
+        if not recipient_str:
+            return {"success": False, "reason": f"no valid USDC ATA for supplier '{supplier}'"}
+
         amount_raw = int(amount_usdc * 1_000_000)
-        recipient_str = MOCK_SUPPLIERS.get(supplier, MOCK_SUPPLIERS["openai"])
         recipient = Pubkey.from_string(recipient_str)
 
         ok, reason = await self.client.can_spend(amount_raw, recipient)
@@ -41,18 +76,21 @@ class TreasuryManager:
 
         memo = memo or f"{supplier}-{datetime.utcnow().strftime('%Y-%m-%d')}"
         try:
-            # In production: actual on-chain spend
-            # sig = await self.client.spend(amount_raw, recipient_ata, memo=memo)
-            log.info(f"[MOCK] Paid {supplier}: {amount_usdc} USDC, memo={memo}")
+            sig = await self.client.spend(amount_raw, recipient, memo=memo)
+            log.info(f"Paid {supplier}: {amount_usdc} USDC, memo={memo}, sig={sig}")
             if self.memory:
                 self.memory.log_spend(supplier, amount_raw)
-            return {"success": True, "supplier": supplier, "amount": amount_usdc, "memo": memo}
+            return {"success": True, "supplier": supplier, "amount": amount_usdc, "memo": memo, "sig": sig}
         except Exception as e:
-            log.error(f"Payment failed: {e}")
+            log.error(f"Payment failed for {supplier}: {e}")
             return {"success": False, "error": str(e)}
 
     async def tick(self) -> dict:
         """Hourly treasury check. Decides whether to spend."""
+        if self.client is None:
+            log.warning("tick() skipped — client is None, cannot query vault state")
+            return {"reason": "client not initialized", "state": None, "actions": []}
+
         try:
             state = await self.client.get_vault_state()
         except Exception:

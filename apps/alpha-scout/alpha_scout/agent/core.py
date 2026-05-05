@@ -12,11 +12,14 @@ class AlphaScoutAgent:
     def __init__(self, settings, services: dict):
         self.settings = settings
         self.services = services
-        self.llm = ChatOpenAI(
+        llm_kwargs = dict(
             model=settings.llm_model,
             temperature=0.2,
             api_key=settings.openai_api_key or None,
         )
+        if getattr(settings, "openai_api_base", ""):
+            llm_kwargs["base_url"] = settings.openai_api_base
+        self.llm = ChatOpenAI(**llm_kwargs)
         self.tools = build_tools(services)
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", SYSTEM_PROMPT),

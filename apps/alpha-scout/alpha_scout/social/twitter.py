@@ -15,7 +15,7 @@ class TwitterClient:
                     consumer_key=settings.twitter_consumer_key,
                     consumer_secret=settings.twitter_consumer_secret,
                     access_token=settings.twitter_access_token,
-                    access_token_secret=settings.twitter_access_secret,
+                    access_token_secret=settings.twitter_access_token_secret,
                 )
                 log.info("Twitter client initialized (live mode)")
             except Exception as e:
