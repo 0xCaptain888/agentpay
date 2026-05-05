@@ -30,30 +30,24 @@ class DeFiLlamaSource:
 
 
 class HeliusSource:
-    """Monitor large USDC transfers, new token mints."""
+    """Monitor large USDC transfers, new token mints.
+    Requires a Helius API key. Returns empty list if no key is set.
+    """
     def __init__(self, api_key: str = ""):
         self.api_key = api_key
 
     async def recent_large_transfers(self, min_usd: int = 100_000) -> list[dict]:
-        # Helius enhanced transactions API
-        # Simplified: returns mock in dev, real data with API key
         if not self.api_key:
-            return [
-                {
-                    "type": "large_transfer",
-                    "amount_usd": 250_000,
-                    "token": "USDC",
-                    "from": "whale_wallet_1",
-                    "to": "dex_pool_raydium",
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-                {
-                    "type": "large_transfer",
-                    "amount_usd": 180_000,
-                    "token": "SOL",
-                    "from": "whale_wallet_2",
-                    "to": "marinade_staking",
-                    "timestamp": datetime.utcnow().isoformat(),
-                },
-            ]
-        return []
+            return []  # No mock data — CoinGecko + DeFiLlama are sufficient
+        # Real Helius enhanced transactions API
+        url = f"https://api.helius.xyz/v0/addresses/transactions"
+        try:
+            async with httpx.AsyncClient(timeout=10) as c:
+                r = await c.get(url, params={"api-key": self.api_key, "limit": 20})
+                r.raise_for_status()
+                return [
+                    tx for tx in r.json()
+                    if tx.get("amount_usd", 0) >= min_usd
+                ]
+        except Exception:
+            return []

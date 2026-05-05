@@ -42,12 +42,15 @@ Output JSON matching the schema strictly. No prose outside JSON.
 
 
 class Analyzer:
-    def __init__(self, model: str = "gpt-4o-mini", api_key: str = ""):
-        self.llm = ChatOpenAI(
+    def __init__(self, model: str = "gpt-4o-mini", api_key: str = "", api_base: str = ""):
+        kwargs = dict(
             model=model,
             temperature=0.4,
             api_key=api_key or None,
         )
+        if api_base:
+            kwargs["base_url"] = api_base
+        self.llm = ChatOpenAI(**kwargs)
         self.parser = JsonOutputParser(pydantic_object=DailySignals)
 
     async def generate(self, market_data: dict) -> DailySignals:
