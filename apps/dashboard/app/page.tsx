@@ -59,13 +59,16 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="mt-12 pt-6 border-t border-border text-xs text-muted flex flex-wrap gap-4">
-        <span>Vault PDA: AgntVLT...111</span>
+        <a
+          href={`https://explorer.solana.com/address/${process.env.NEXT_PUBLIC_PROGRAM_ID}?cluster=devnet`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:text-foreground transition-colors"
+        >
+          Program: {(process.env.NEXT_PUBLIC_PROGRAM_ID || "not deployed")?.slice(0, 8)}...
+        </a>
         <span>·</span>
-        <span>Program: AgntVLT...111</span>
-        <span>·</span>
-        <a href="https://github.com" className="hover:text-foreground transition-colors">GitHub</a>
-        <span>·</span>
-        <a href="https://x.com/alphascout_ai" className="hover:text-foreground transition-colors">Twitter</a>
+        <a href="https://github.com/0xCaptain888/agentpay" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
         <span>·</span>
         <span>Built with AgentPay · Solana Frontier Hackathon</span>
       </footer>
