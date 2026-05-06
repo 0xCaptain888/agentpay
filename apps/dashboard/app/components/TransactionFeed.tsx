@@ -8,43 +8,78 @@ interface Transaction {
   label: string;
   amount: number;
   time: string;
+  signature?: string;
 }
 
-// Demo transactions for display
-const demoTransactions: Transaction[] = [
-  { type: "earned", label: "Earned from API call", amount: 0.01, time: "2 min ago" },
-  { type: "spent", label: "Paid OpenAI (LLM credits)", amount: 0.50, time: "1 hr ago" },
-  { type: "earned", label: "Earned from API call", amount: 0.01, time: "1 hr ago" },
-  { type: "spent", label: "Paid Helius (RPC top-up)", amount: 0.20, time: "3 hr ago" },
-  { type: "earned", label: "Earned from API call", amount: 0.01, time: "3 hr ago" },
-  { type: "earned", label: "Earned from API call", amount: 0.01, time: "4 hr ago" },
-  { type: "spent", label: "Paid Twitter Premium", amount: 0.30, time: "6 hr ago" },
-  { type: "earned", label: "Earned from API call", amount: 0.01, time: "7 hr ago" },
-];
+function relativeTime(ts: number | null): string {
+  if (!ts) return "";
+  const diff = Math.floor(Date.now() / 1000 - ts);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
 export function TransactionFeed() {
+  const { data } = useSWR("/api/transactions", fetcher, { refreshInterval: 10000 });
+  const txs: Transaction[] = data?.transactions ?? [];
+
+  if (!data) {
+    return (
+      <div className="border border-border rounded-lg p-6 bg-card">
+        <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
+        <div className="text-sm text-muted">Loading...</div>
+      </div>
+    );
+  }
+
+  if (txs.length === 0) {
+    return (
+      <div className="border border-border rounded-lg p-6 bg-card">
+        <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
+        <div className="text-sm text-muted">
+          No transactions yet. Run a few API calls to start the engine.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="border border-border rounded-lg p-6 bg-card">
       <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
       <div className="space-y-0">
-        {demoTransactions.map((tx, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between py-3 border-b border-border last:border-0"
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={`text-sm font-mono font-bold ${
-                  tx.type === "earned" ? "text-positive" : "text-negative"
-                }`}
-              >
-                {tx.type === "earned" ? "+" : "-"}${tx.amount.toFixed(2)}
-              </span>
-              <span className="text-sm">{tx.label}</span>
+        {txs.map((tx, i) => {
+          const inner = (
+            <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`text-sm font-mono font-bold ${
+                    tx.type === "earned" ? "text-positive" : "text-negative"
+                  }`}
+                >
+                  {tx.type === "earned" ? "+" : "-"}${tx.amount.toFixed(4)}
+                </span>
+                <span className="text-sm">{tx.label}</span>
+              </div>
+              <span className="text-xs text-muted">{tx.time || relativeTime(0)}</span>
             </div>
-            <span className="text-xs text-muted">{tx.time}</span>
-          </div>
-        ))}
+          );
+
+          if (tx.signature) {
+            return (
+              <a
+                key={tx.signature}
+                href={`https://explorer.solana.com/tx/${tx.signature}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block hover:bg-border/30 transition-colors rounded"
+              >
+                {inner}
+              </a>
+            );
+          }
+          return <div key={i}>{inner}</div>;
+        })}
       </div>
     </div>
   );

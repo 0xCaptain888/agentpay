@@ -42,7 +42,7 @@ export function PolicyPanel() {
         </div>
         <div className="flex justify-between">
           <span className="text-muted">Vendors allowlisted</span>
-          <span className="font-mono">3 vendors</span>
+          <span className="font-mono">{vault.allowlist_size ?? 0} vendors</span>
         </div>
       </div>
     </div>
